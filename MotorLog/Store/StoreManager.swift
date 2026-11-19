@@ -23,6 +23,11 @@ final class StoreManager {
     private(set) var introOfferEligibleProductIDs: Set<String> = []
 
     @ObservationIgnored private var updatesTask: Task<Void, Never>?
+    /// Incremented on every refresh so an older, slower refresh can't overwrite a newer result.
+    @ObservationIgnored private var refreshGeneration = 0
+    /// Verified purchases from this session that `currentEntitlements` may not include yet.
+    /// Each one is dropped as soon as StoreKit reports the product as an entitlement.
+    @ObservationIgnored private var recentPurchases: [StoreKit.Transaction] = []
 
     var isPro: Bool { activePlan != nil }
 
@@ -89,20 +94,45 @@ final class StoreManager {
 
     /// Recomputes `activePlan` from StoreKit's current entitlements.
     func refreshEntitlements() async {
-        var best: ProPlan?
+        // Refreshes overlap (launch, returning to the foreground after the payment sheet, purchase,
+        // Transaction.updates). Only the most recently started one may publish its result, otherwise
+        // a snapshot taken before the purchase committed could reset the plan to free.
+        refreshGeneration += 1
+        let generation = refreshGeneration
+
+        var entitled: [StoreKit.Transaction] = []
         for await result in StoreKit.Transaction.currentEntitlements {
-            guard case .verified(let transaction) = result,
-                  let plan = ProPlan(rawValue: transaction.productID),
+            if case .verified(let transaction) = result {
+                entitled.append(transaction)
+            }
+        }
+        guard generation == refreshGeneration else { return }
+
+        // Once StoreKit reports a product itself, the locally remembered purchase is no longer needed.
+        let entitledIDs = Set(entitled.map(\.productID))
+        recentPurchases.removeAll { entitledIDs.contains($0.productID) }
+
+        activePlan = bestPlan(in: entitled + recentPurchases)
+    }
+
+    /// Highest-ranked Pro plan among transactions that are neither revoked nor expired.
+    private func bestPlan(in transactions: [StoreKit.Transaction]) -> ProPlan? {
+        var best: ProPlan?
+        for transaction in transactions {
+            guard let plan = ProPlan(rawValue: transaction.productID),
                   transaction.revocationDate == nil else { continue }
             if let expiration = transaction.expirationDate, expiration <= .now { continue }
             if let current = best, current.rank >= plan.rank { continue }
             best = plan
         }
-        activePlan = best
+        return best
     }
 
     private func handle(_ result: VerificationResult<StoreKit.Transaction>) async {
         guard case .verified(let transaction) = result else { return }
+        if transaction.revocationDate != nil {
+            recentPurchases.removeAll { $0.productID == transaction.productID }
+        }
         await transaction.finish()
         await refreshEntitlements()
     }
@@ -122,6 +152,8 @@ final class StoreManager {
         case .success(let verification):
             switch verification {
             case .verified(let transaction):
+                // Remember the purchase so it counts even while `currentEntitlements` still lags behind it.
+                recentPurchases.append(transaction)
                 await transaction.finish()
                 await refreshEntitlements()
                 return .purchased

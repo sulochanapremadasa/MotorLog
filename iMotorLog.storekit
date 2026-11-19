@@ -9,7 +9,7 @@
       }
     ]
   },
-  "identifier" : "FA329F5D",
+  "identifier" : "C34DEB47",
   "nonRenewingSubscriptions" : [
 
   ],
@@ -38,7 +38,7 @@
     "_developerTeamID" : "84YF9KGTY2",
     "_disableDialogs" : false,
     "_failTransactionsEnabled" : false,
-    "_lastSynchronizedDate" : 816708508.15820301,
+    "_lastSynchronizedDate" : 816784565.79823697,
     "_locale" : "en_US",
     "_renewalBillingIssuesEnabled" : false,
     "_storefront" : "USA",
@@ -104,8 +104,8 @@
           "billingPlans" : [
             {
               "billingPlanType" : "BILLED_UPFRONT",
-              "commitmentDisplayPrice" : "4.99",
-              "displayPrice" : "4.99",
+              "commitmentDisplayPrice" : "1.99",
+              "displayPrice" : "1.99",
               "internalID" : "6836375776_BILLED_UPFRONT",
               "isEnabled" : true
             }
@@ -113,7 +113,7 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "4.99",
+          "displayPrice" : "1.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "6836375776",

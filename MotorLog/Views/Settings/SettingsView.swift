@@ -91,7 +91,10 @@ struct SettingsView: View {
         // Title is kept for the back-button menu on pushed screens; the bar itself is hidden here.
         .navigationTitle("Settings")
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showsPaywall) {
+        .sheet(isPresented: $showsPaywall, onDismiss: {
+            // Make sure the Pro card reflects a purchase made in the paywall.
+            Task { await store.refreshEntitlements() }
+        }) {
             PaywallView()
         }
         .manageSubscriptionsSheet(isPresented: $showsManageSubscriptions)
